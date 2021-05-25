@@ -17,6 +17,22 @@ from numpy.linalg import norm
 import skimage.draw
 import math
 
+def mark_component(img_arr):
+    stats = sitk.LabelShapeStatisticsImageFilter()
+    components = sitk.ConnectedComponent(sitk.GetImageFromArray(img_arr))
+    stats.Execute(components)
+    label_area = {label:stats.GetNumberOfPixels(label) for label in stats.GetLabels()}
+    
+    label_area = sorted(label_area.items(), key=lambda label_area:label_area[1], reverse=True)
+    #print(label_area)
+    components_arr = sitk.GetArrayFromImage(components)
+    
+    #for idx in range(1, len(label_area)):
+    #    label, pixel_num = label_area[idx]
+    #    components_arr[components_arr == label] = idx
+    
+    return label_area, components_arr
+
 def connected_domain(image, mask=True):
     cca = sitk.ConnectedComponentImageFilter()
     cca.SetFullyConnected(True)
@@ -57,7 +73,7 @@ def connected_domain(image, mask=True):
 
 def connected_component(image):
     # 标记输入的3D图像
-    label, num = measure.label(image, connectivity=2, return_num=True)
+    label, num = measure.label(image, connectivity=1, return_num=True)
     if num < 1:
         return [], image
     # 获取对应的region对象
@@ -96,7 +112,7 @@ def remove_mix_region(num, volume, out_data):
     return after_num, after_volume, out_data
 
 def save_nii(plaque, data, nii_name):
-    dealt_plaque_dir = plaque.split('mask_plaque.nii.gz')[0]
+    dealt_plaque_dir = plaque.split('mask_plaque_round60.nii.gz')[0]
     #dcm_folder = plaque.split('_CTA')[0]
     #series = SERIES(series_path=dcm_folder, strict_check_series=True)
     affine_arr = np.eye(4)
@@ -266,6 +282,7 @@ def plaque2vessel(plaque, plaque_num, out_plaque_data, vessel_num, vessel_left_d
                         if (plaque_dilation_intersection==9).any() and (plaque_max_region_intersection==9).any():
                             coor_index.append(p)
                             coord_plaque = np.argwhere(plaque_arr==9)
+                            break
                     print(coor_index)
                     print(len(coord_plaque))
 
@@ -341,7 +358,7 @@ def plaque2vessel(plaque, plaque_num, out_plaque_data, vessel_num, vessel_left_d
                     vessel_data_copy[out_plaque2vessel_data!=plaque2vessel_num[i]] = 0
                     #找到斑块和血管相交的点
                     #intersection_point_coords = find_intersection_coords(vessel_data_copy, vessel_data.copy())
-                    #对血管以管道的样式连接
+                    #对血管以管道的样式连接，对斑块和血管相交点和中点连接
                     for j in range(len(coord_plaque)):
                         generate_pipeline(coord_plaque[j], middle_point, vessel_data)
 
@@ -425,11 +442,11 @@ def generate_point_lines(fz, fy, fx, sz, sy, sx, vessel_data):
     print('final_points', points)
     print('middle_point', middle_point)
     
-    #对连线的中点进行膨胀
+    #对连线的中点进行膨胀一次
     vessel_middle_point = np.zeros(vessel_data.shape)
     vessel_middle_point[middle_point[0]][middle_point[1]][middle_point[2]] = 1
     vessel_middle_point_dilation = vessel_dilation(vessel_middle_point)
-    vessel_middle_point_dilation = vessel_dilation(vessel_middle_point_dilation)
+    #vessel_middle_point_dilation = vessel_dilation(vessel_middle_point_dilation)
     
     for data in points:
         vessel_data[data[0]][data[1]][data[2]] = 2
@@ -585,9 +602,11 @@ def remove_other_vessel(vessel_data, out_vessel_data):
     vessel_left_data[out_vessel_data!=1] = 0
     return vessel_left_data
 
-plaque_dir = '/mnt/users/ffr_plaque_mask/'
+#plaque_dir = '/mnt/users/ffr_plaque_mask/'
+plaque_dir = '/mnt/users/ffr_datasets/ffr_cpr_mask_newmap/'
 vessel_dir = '/mnt/DrwiseDataNFS/drwise_runtime_env/data1/inputdata' 
-plaque_list = glob.glob(os.path.join(plaque_dir, '*', '*', 'mask_plaque.nii.gz'))
+#plaque_list = glob.glob(os.path.join(plaque_dir, '*', '*', 'mask_plaque.nii.gz'))
+plaque_list = glob.glob(os.path.join(plaque_dir, '*', '*', 'mask_plaque_round60.nii.gz'))
 #vessel_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[4], '*', plaque.split('/')[5]+'_CTA', 'mask_source/mask_vessel.nii.gz'))
 counts = 0
 without_plaque_list = []
@@ -596,18 +615,18 @@ all_plaque_brightness = []
 plaques = []
 #plaque_datasets = [1036619, 1036625, 1036603, 1036612]
 #plaque_datasets = [1073318]
-broken_vessels = [1073332, 1073332, 1036627, 1036604, 1073308, 1036623, 1073309, 1036609, 1073297, 1073318, 1073318, 1036617, 1036617, 1073300, 1073298, 1022836]
-broken_vessels = [1073332]
+#broken_vessels = [1073332, 1073332, 1036627, 1036604, 1073308, 1036623, 1073309, 1036609, 1073297, 1073318, 1073318, 1036617, 1036617, 1073300, 1073298, 1022836]
+broken_vessels = ['1073318']#['1036604_60_0416', '1036623', '1073309', '1073332', '1073330', '1073318', '1036617']#['1036623', '1073309', '1073332', '1073330', '1073318', '1036617'] #[1036604_60_0416]
 for plaque in plaque_list:
     #print(plaque.split('/')[4])
-    if int(plaque.split('/')[4]) > 0: #in broken_vessels:
+    if plaque.split('/')[5] in broken_vessels: #int(plaque.split('/')[4]) > 0: 
         #continue
         #plaque = '/mnt/users/ffr_plaque_mask/1073318/AF7B89E9/mask_plaque.nii.gz'
         print(plaque)
         plaques.append(plaque)
         plaque_data = sitk.ReadImage(plaque)
         plaque_data = sitk.GetArrayFromImage(plaque_data)
-        vessel_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[4], '*', plaque.split('/')[5]+'_CTA', 'mask_source/mask_vessel.nii.gz'))[0]
+        vessel_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[5], '*', plaque.split('/')[6], 'mask_source/mask_vessel.nii.gz'))[0]
         vessel_data = sitk.ReadImage(vessel_list)
         vessel_data = sitk.GetArrayFromImage(vessel_data)   
         #centerline_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[4], '*', plaque.split('/')[5]+'_CTA', 'result.json'))[0]
