@@ -182,7 +182,10 @@ def plaque2vessel(plaque, plaque_num, out_plaque_data, vessel_num, vessel_left_d
     #print(vessel_max_region.shape)
     #print('vessel_max_region volume', np_count(vessel_max_region, 1))
     #vessel_num中加入了由于非斑块导致而产生的血管断裂，可以保留最大的连通域vessel_num[0]，只对斑块导致断裂的血管进行找连接点
+<<<<<<< HEAD
     flag = False
+=======
+>>>>>>> d34b8ea9e664cb1936d2518f14a95a9570e5b067
     if len(plaque_num) != 0:
         if len(plaque2vessel_num) > len(vessel_num) or len(plaque2vessel_num) > 1:
             for i in range(1, len(plaque2vessel_num)):
@@ -227,6 +230,7 @@ def plaque2vessel(plaque, plaque_num, out_plaque_data, vessel_num, vessel_left_d
                     generate_point_lines(first_point_coord[0], first_point_coord[1], first_point_coord[2], second_point_coord[0], second_point_coord[1], second_point_coord[2], vessel_data)
                     #vessel_data[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1] = 2
                     print(vessel_data[vessel_data==2])
+<<<<<<< HEAD
                     flag = True
                     #vessel_new_data = generate_line(first_point_coord, second_point_coord, vessel_new_data)
                     #rr, cc = line(first_point_coord[1], first_point_coord[2], second_point_coord[1], second_point_coord[2])
@@ -244,6 +248,24 @@ def plaque2vessel(plaque, plaque_num, out_plaque_data, vessel_num, vessel_left_d
                 vessel_data[vessel_data==2] = 1
                 data_num, out_data = connected_component(vessel_data)
                 print('repaired_vessel_data', data_num, get_volume(data_num, out_data))
+=======
+                    #vessel_new_data = generate_line(first_point_coord, second_point_coord, vessel_new_data)
+                    #rr, cc = line(first_point_coord[1], first_point_coord[2], second_point_coord[1], second_point_coord[2])
+                    #vessel_new_data[rr, cc] = 2
+
+            #234-239用来使血管=1，斑块=2
+            #去掉斑块中新连接的血管
+            out_plaque_data[vessel_data==2] = 0
+            #新连接的血管值都为1
+            vessel_data[vessel_data==2] = 1
+            #斑块值为2
+            vessel_data[np.nonzero(out_plaque_data)] = 2
+
+            save_nii(plaque, vessel_data)
+            vessel_data[vessel_data==2] = 1
+            data_num, out_data = connected_component(vessel_data)
+            print('repaired_vessel_data', data_num, get_volume(data_num, out_data))
+>>>>>>> d34b8ea9e664cb1936d2518f14a95a9570e5b067
         else:
             print('没有由于斑块导致的血管断裂')
     else:
@@ -396,10 +418,17 @@ plaques = []
 #plaque_datasets = [1036619, 1036625, 1036603, 1036612]
 #plaque_datasets = [1073332]
 broken_vessels = [1073332, 1073332, 1036627, 1036604, 1073308, 1036623, 1073309, 1036609, 1073297, 1073318, 1073318, 1036617, 1036617, 1073300, 1073298, 1022836]
+<<<<<<< HEAD
 broken_vessels = [1073318]
 for plaque in plaque_list:
     #print(plaque.split('/')[4])
     if int(plaque.split('/')[4]) in broken_vessels: #< 1020000:
+=======
+#broken_vessels = [1073318]
+for plaque in plaque_list:
+    #print(plaque.split('/')[4])
+    if int(plaque.split('/')[4]) > 0: #in broken_vessels: #< 1020000:
+>>>>>>> d34b8ea9e664cb1936d2518f14a95a9570e5b067
         #continue
         print(plaque)
         plaques.append(plaque)

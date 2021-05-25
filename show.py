@@ -74,3 +74,10 @@ img = cv2.imread('2.jpg')
 cv2.imshow("img", img)
 cv2.waitKey(0)    
 cv2.destroyAllWindows() 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+=======
+>>>>>>> d34b8ea9e664cb1936d2518f14a95a9570e5b067
+>>>>>>> 3610afb3e642db870b183466c64b636c36a0358c
