@@ -22,6 +22,7 @@ import torch
 from mitok.image.cv_gpu import edt
 from scipy.ndimage import gaussian_filter
 import shutil
+from plaque.filter import GaussianSmoothing
 
 def pairwise_distances(x, device, y=None, to_numpy=True, do_sqrt=True):
     '''
@@ -206,15 +207,21 @@ def save_nii(plaque, data, nii_name):
         #对血管进行高斯平滑
         gauss_data = data.copy()
         gauss_data[gauss_data==2] = 0
-        gauss_data = gaussian_filter(gauss_data, sigma=0.8, order=0, output=None, mode="reflect", cval=0.0, truncate=4.0)
+        #gauss_data = gaussian_filter(gauss_data, sigma=1, order=0, output=None, mode="reflect", cval=0.0, truncate=4.0)
+        gauss_data = torch.as_tensor(gauss_data)
+        gauss_data = taorch.unsqueeze(gauss_data, dim=0)
+        gaussiansmoothing = GaussianSmoothing(5, 1, dim=3)
+        gauss_data = gaussiansmoothing.forward(gauss_data)
+        gauss_data = torch.squeeze(gauss_data, dim=0)
+        gauss_data = gauss_data.cpu().numpy()
         print(np.unique(gauss_data))
         gauss_data = (gauss_data>=0.8).astype(np.float32)
         gauss_data[data==2] = 2
         print(np.unique(gauss_data))
 
-        plaque_nii = nib.Nifti1Image(gauss_data, affine_arr)
-        nib.save(plaque_nii, os.path.join(dealt_plaque_dir, nii_name)) 
-        shutil.copy(os.path.join(dealt_plaque_dir, nii_name), os.path.join('/mnt/public/zhangyongming/ffr_cpr_mask_newmap_centerline', dealt_plaque_dir.split('ffr_cpr_mask_newmap/')[1], nii_name))           
+        #plaque_nii = nib.Nifti1Image(gauss_data, affine_arr)
+        #nib.save(plaque_nii, os.path.join(dealt_plaque_dir, nii_name)) 
+        #shutil.copy(os.path.join(dealt_plaque_dir, nii_name), os.path.join('/mnt/public/zhangyongming/ffr_cpr_mask_newmap_centerline', dealt_plaque_dir.split('ffr_cpr_mask_newmap/')[1], nii_name))           
         #nib.save(plaque_nii, os.path.join('/mnt/public/zhangyongming/ffr_cpr_mask_newmap_centerline', dealt_plaque_dir.split('ffr_cpr_mask_newmap/')[1], nii_name)) 
     else:
         plaque_nii = nib.Nifti1Image(data, affine_arr)
@@ -754,43 +761,44 @@ plaque_list = glob.glob(os.path.join(plaque_dir, '*', '*', 'mask_plaque_round60.
 plaques = []
 #broken_vessels = [1073332, 1073332, 1036627, 1036604, 1073308, 1036623, 1073309, 1036609, 1073297, 1073318, 1073318, 1036617, 1036617, 1073300, 1073298, 1022836]
 broken_vessels = ['1036623']#['1036604_60_0416', '1073309', '1073318', '1036617']#['1036604_60_0416', '1036623', '1073309', '1073330', '1073318', '1036617', '1073332']#['1036623', '1073309', '1073332', '1073330', '1073318', '1036617'] #[1036604_60_0416]
-for plaque in plaque_list:
-    #print(plaque.split('/')[4])
-    if plaque.split('/')[5] in broken_vessels: #int(plaque.split('/')[4]) > 0: 
-        #continue
-        #plaque = '/mnt/users/ffr_plaque_mask/1073318/AF7B89E9/mask_plaque.nii.gz'
-        print(plaque)
-        plaques.append(plaque)
-        plaque_data = sitk.ReadImage(plaque)
-        plaque_data = sitk.GetArrayFromImage(plaque_data)
-        vessel_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[5], '*', plaque.split('/')[6], 'mask_source/mask_vessel.nii.gz'))[0]
-        vessel_data = sitk.ReadImage(vessel_list)
-        vessel_data = sitk.GetArrayFromImage(vessel_data)   
-        centerline_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[5], '*', plaque.split('/')[6], 'result.json'))[0]
-        
-        all_points = []
-        with open(centerline_list, 'r') as f:
-            datas = json.load(f)
-            centerlines = datas["center_lines"]
-            for point in centerlines:
-                all_points.extend(point["points"])
-        all_points = interp(all_points, sample_spacing=0.5)
-        '''
-        #在血管中生成中心线点
-        for p in range(len(all_points)):
-            if vessel_data[int(all_points[p][2]),int(all_points[p][1]),int(all_points[p][0])] == 1:
-                vessel_data[int(all_points[p][2]),int(all_points[p][1]),int(all_points[p][0])] = 10
-        save_nii(plaque, vessel_data, 'mask_vessel_centerline_view.nii.gz')
-        '''
-        #print(all_points, len(all_points))
-        #print(vessel_data[np.nonzero(vessel_data)])
-        #num, out_data = connected_domain(data)
-        plaque_label_area, out_plaque_data = mark_component(plaque_data)
-        #print(plaque_num, out_plaque_data[np.nonzero(out_plaque_data)])
-        vessel_label_area, out_vessel_data = mark_component(vessel_data)
-        #print(vessel_num, out_vessel_data[np.nonzero(out_vessel_data)])
-        vessel_left_data = remove_other_vessel(vessel_data, out_vessel_data)
-        plaque2vessel(plaque, plaque_label_area, out_plaque_data, vessel_label_area, vessel_left_data, out_vessel_data[out_vessel_data==1], vessel_data, all_points)
+if __name__ == '__main__':
+    for plaque in plaque_list:
+        #print(plaque.split('/')[4])
+        if plaque.split('/')[5] in broken_vessels: #int(plaque.split('/')[4]) > 0: 
+            #continue
+            #plaque = '/mnt/users/ffr_plaque_mask/1073318/AF7B89E9/mask_plaque.nii.gz'
+            print(plaque)
+            plaques.append(plaque)
+            plaque_data = sitk.ReadImage(plaque)
+            plaque_data = sitk.GetArrayFromImage(plaque_data)
+            vessel_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[5], '*', plaque.split('/')[6], 'mask_source/mask_vessel.nii.gz'))[0]
+            vessel_data = sitk.ReadImage(vessel_list)
+            vessel_data = sitk.GetArrayFromImage(vessel_data)   
+            centerline_list = glob.glob(os.path.join(vessel_dir, plaque.split('/')[5], '*', plaque.split('/')[6], 'result.json'))[0]
+            
+            all_points = []
+            with open(centerline_list, 'r') as f:
+                datas = json.load(f)
+                centerlines = datas["center_lines"]
+                for point in centerlines:
+                    all_points.extend(point["points"])
+            all_points = interp(all_points, sample_spacing=0.5)
+            '''
+            #在血管中生成中心线点
+            for p in range(len(all_points)):
+                if vessel_data[int(all_points[p][2]),int(all_points[p][1]),int(all_points[p][0])] == 1:
+                    vessel_data[int(all_points[p][2]),int(all_points[p][1]),int(all_points[p][0])] = 10
+            save_nii(plaque, vessel_data, 'mask_vessel_centerline_view.nii.gz')
+            '''
+            #print(all_points, len(all_points))
+            #print(vessel_data[np.nonzero(vessel_data)])
+            #num, out_data = connected_domain(data)
+            plaque_label_area, out_plaque_data = mark_component(plaque_data)
+            #print(plaque_num, out_plaque_data[np.nonzero(out_plaque_data)])
+            vessel_label_area, out_vessel_data = mark_component(vessel_data)
+            #print(vessel_num, out_vessel_data[np.nonzero(out_vessel_data)])
+            vessel_left_data = remove_other_vessel(vessel_data, out_vessel_data)
+            plaque2vessel(plaque, plaque_label_area, out_plaque_data, vessel_label_area, vessel_left_data, out_vessel_data[out_vessel_data==1], vessel_data, all_points)
 
-print(len(plaques))
+    print(len(plaques))
 
